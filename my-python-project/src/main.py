@@ -8,7 +8,7 @@ def inicializarTarefas(listaTarefas):
         tarefa["duracaoRestante"] = tarefa["duracaoTotal"]
     return ordenarPorDuracao(listaTarefas)
 
-def ordenarPorDuracao(tarefas):
+def ordenarPorDuracao(tarefas): #TODO: meio que to ignorando o quantum aqui né?
     for i in range(len(tarefas)):
         for j in range(i + 1, len(tarefas)):
             if tarefas[i]["duracaoTotal"] < tarefas[j]["duracaoTotal"]:
