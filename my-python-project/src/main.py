@@ -1,91 +1,114 @@
 from CPU import CPU
 
-def initialize_cpus(count):
-    return [CPU(f"CPU-{i}") for i in range(count)]
+def inicializarCpus(quantidade):
+    return [CPU(f"CPU-{i}") for i in range(quantidade)]
 
-def initialize_tasks(tasks):
-    for task in tasks:
-        task["remainingDuration"] = task["totalDuration"]
-    return sort_tasks_by_quantum_desc(tasks)
+def inicializarTarefas(listaTarefas):
+    for tarefa in listaTarefas:
+        tarefa["duracaoRestante"] = tarefa["duracaoTotal"]
+    return ordenarPorDuracao(listaTarefas)
 
-def sort_tasks_by_quantum_desc(tasks):
-    for i in range(len(tasks)):
-        for j in range(i + 1, len(tasks)):
-            if tasks[i]["quantum"] < tasks[j]["quantum"]:
-                tasks[i], tasks[j] = tasks[j], tasks[i]
-    return tasks
+def ordenarPorDuracao(tarefas):
+    for i in range(len(tarefas)):
+        for j in range(i + 1, len(tarefas)):
+            if tarefas[i]["duracaoTotal"] < tarefas[j]["duracaoTotal"]:
+                tarefas[i], tarefas[j] = tarefas[j], tarefas[i]
+    return tarefas
 
-def create_cpu_history(cpus):
-    history = {}
+def criarHistoricoDasCpus(cpus):
+    historico = {}
     for cpu in cpus:
-        history[cpu.name] = []
-    return history
+        historico[cpu.name] = [] # E uma lista com o nome de CPU em PHP seria algo como ['nome' => []]
+    return historico
 
-def run_scheduler(tasks, cpus, cpu_history):
-    completed_tasks = []
+# Executa o escalonador até que todas as tarefas sejam finalizadas
+def executarEscalonador(tarefas, cpus, histCpu):
+    tarefasFinalizadas = []
 
-    while len(completed_tasks) < len(tasks):
-        available_cpus = cpus[:]
-        execution_queue = []
+    while len(tarefasFinalizadas) < len(tarefas):
+        cpusDisponiveis = cpus[:]
+        filaExecucao = []
 
-        for task in tasks:
-            if task["id"] in completed_tasks:
+        for tarefa in tarefas:
+            if tarefa["id"] in tarefasFinalizadas:
                 continue
-            if len(available_cpus) >= task["requiredCpus"]:
-                allocated_cpus = []
-                for _ in range(task["requiredCpus"]):
-                    allocated_cpus.append(available_cpus.pop(0))
-                execution_queue.append((task, allocated_cpus))
+            if len(cpusDisponiveis) >= tarefa["cpusNecessarias"]:
+                cpusAlocadas = []
+                for _ in range(tarefa["cpusNecessarias"]):
+                    cpusAlocadas.append(cpusDisponiveis.pop(0))
+                filaExecucao.append((tarefa, cpusAlocadas))
 
-        for task, allocated_cpus in execution_queue:
-            task["remainingDuration"] -= task["quantum"]
-            for cpu in allocated_cpus:
-                cpu_history[cpu.name].append(f"{task['id']}({task['quantum']})")
-            if task["remainingDuration"] <= 0:
-                completed_tasks.append(task["id"])
+        for tarefa, cpusAlocadas in filaExecucao:
+            if tarefa["duracaoRestante"] <= 0:
+                continue
 
-def fill_cpu_history(cpu_history):
-    max_length = 0
-    for history in cpu_history.values():
-        if len(history) > max_length:
-            max_length = len(history)
+            tempoAntes = tarefa["duracaoRestante"]
+            tarefa["duracaoRestante"] -= 5
+            tempoDepois = max(tarefa["duracaoRestante"], 0)
 
-    for history in cpu_history.values():
-        while len(history) < max_length:
-            history.append(".")
-    return max_length
+            for cpu in cpusAlocadas:
+                histCpu[cpu.name].append(f'{tarefa["id"]}({tempoDepois})')
 
-def print_execution_table(cpu_history, cycles):
-    print("".ljust(8), end="")
-    for i in range(cycles):
-        print(f"C{i+1}".center(10), end="")
-    print()
-    for cpu_name in sorted(cpu_history):
-        print(cpu_name.ljust(8), end="")
-        for entry in cpu_history[cpu_name]:
-            print(entry.center(10), end="")
+            if tempoDepois == 0:
+                tarefasFinalizadas.append(tarefa["id"])
+
+        for cpu in cpusDisponiveis:
+            histCpu[cpu.name].append(".")
+
+# Ordeno o historidco
+def completarHistorico(histCpu):
+    maiorTamanho = max(len(h) for h in histCpu.values())
+    for h in histCpu.values():
+        while len(h) < maiorTamanho:
+            h.append(".")
+    return maiorTamanho
+
+# Imprimo de 10 em 10
+def imprimirTabelaExecucao(histCpu, totalCiclos):
+    print("\ncada ciclo = 5s, 10 por linha:\n")
+    blocos = (totalCiclos + 9) // 10
+
+    for bloco in range(blocos):
+        inicio = bloco * 10
+        fim = min(inicio + 10, totalCiclos)
+
+        print("".ljust(8), end="") # é como um echo em PHP, obrigado Copilot python n faz sentido
+        for i in range(inicio, fim):
+            print(f"C{i+1}".center(10), end="")
         print()
 
+        for nomeCpu in sorted(histCpu):
+            print(nomeCpu.ljust(8), end="")
+            for entrada in histCpu[nomeCpu][inicio:fim]:
+                print(entrada.center(10), end="")
+            print()
+        print()
+
+def calcularTempoTotal(histCpu):
+    return max(len(h) for h in histCpu.values())
+
 def main():
-    tasks = [
-        {"id": "T1", "quantum": 10, "requiredCpus": 1, "totalDuration": 40},
-        {"id": "T2", "quantum": 20, "requiredCpus": 2, "totalDuration": 20},
-        {"id": "T3", "quantum": 10, "requiredCpus": 2, "totalDuration": 30},
-        {"id": "T4", "quantum": 15, "requiredCpus": 1, "totalDuration": 40},
-        {"id": "T5", "quantum": 15, "requiredCpus": 1, "totalDuration": 30},
-        {"id": "T6", "quantum": 20, "requiredCpus": 4, "totalDuration": 60},
-        {"id": "T7", "quantum": 10, "requiredCpus": 1, "totalDuration": 20},
-        {"id": "T8", "quantum": 20, "requiredCpus": 2, "totalDuration": 40},
-        {"id": "T9", "quantum": 15, "requiredCpus": 2, "totalDuration": 50},
-        {"id": "T10", "quantum": 10, "requiredCpus": 4, "totalDuration": 60},
+    tarefas = [
+        {"id": "T1", "quantum": 10, "cpusNecessarias": 1, "duracaoTotal": 40},
+        {"id": "T2", "quantum": 20, "cpusNecessarias": 2, "duracaoTotal": 20},
+        {"id": "T3", "quantum": 10, "cpusNecessarias": 2, "duracaoTotal": 30},
+        {"id": "T4", "quantum": 15, "cpusNecessarias": 1, "duracaoTotal": 40},
+        {"id": "T5", "quantum": 15, "cpusNecessarias": 1, "duracaoTotal": 30},
+        {"id": "T6", "quantum": 20, "cpusNecessarias": 4, "duracaoTotal": 60},
+        {"id": "T7", "quantum": 10, "cpusNecessarias": 1, "duracaoTotal": 20},
+        {"id": "T8", "quantum": 20, "cpusNecessarias": 2, "duracaoTotal": 40},
+        {"id": "T9", "quantum": 15, "cpusNecessarias": 2, "duracaoTotal": 50},
+        {"id": "T10", "quantum": 10, "cpusNecessarias": 4, "duracaoTotal": 60},
     ]
 
-    cpus = initialize_cpus(4)
-    tasks = initialize_tasks(tasks)
-    cpu_history = create_cpu_history(cpus)
-    run_scheduler(tasks, cpus, cpu_history)
-    cycles = fill_cpu_history(cpu_history)
-    print_execution_table(cpu_history, cycles)
+    cpus = inicializarCpus(4)
+    tarefas = inicializarTarefas(tarefas)
+    histCpu = criarHistoricoDasCpus(cpus)
+    executarEscalonador(tarefas, cpus, histCpu)
+    totalCiclos = completarHistorico(histCpu)
+    imprimirTabelaExecucao(histCpu, totalCiclos)
+
+    print(f"Tempo total: {totalCiclos * 5} segundos")
 
 if __name__ == "__main__":
     main()
